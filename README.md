@@ -21,7 +21,7 @@ docker compose up -d postgres
 go mod download
 
 # 3. Jalankan aplikasi
-go run ./cmd/bei
+go run .
 
 # atau pakai Makefile
 make run
@@ -59,17 +59,17 @@ q           Keluar
 ## Arsitektur
 
 ```
-cmd/bei/          ← entry point
-internal/
-  model/          ← domain types (Stock, Order, Trade, ...)
-  db/             ← koneksi PostgreSQL + migrasi schema
-  repo/           ← repository layer (semua query SQL)
-  engine/         ← matching engine (price-time priority)
-  seed/           ← data demo BEI blue-chips
-  tui/            ← Bubble Tea UI (styles, app model, views)
+app.go            ← Bubble Tea UI (styles, app model, views)
+db.go             ← koneksi PostgreSQL
+engine.go         ← matching engine (price-time priority)
+main.go           ← entry point
+model.go          ← domain types (Stock, Order, Trade, ...)
+repo.go           ← repository layer (semua query SQL)
+seed.go           ← data demo BEI blue-chips
+styles.go         ← Bubble Tea UI styles
 schema.sql        ← DDL idempotent
-docker-compose.yml
-Makefile
+compose.yaml      ← Docker Compose configuration
+Makefile          ← Command shortcuts
 ```
 
 ## Environment Variables

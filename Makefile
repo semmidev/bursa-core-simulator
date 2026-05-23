@@ -2,7 +2,7 @@
 
 # ── Config ────────────────────────────────────────────────────
 BINARY   := bei
-CMD_PATH := ./cmd/bei
+CMD_PATH := .
 DB_DSN   := host=localhost port=5432 user=postgres password=postgres dbname=exchange sslmode=disable
 
 # ── Development ───────────────────────────────────────────────
