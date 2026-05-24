@@ -1,6 +1,6 @@
 # BursaCore ⚡
 
-BursaCore (sebelumnya BEI Exchange Simulator) adalah simulator **Matching Engine Bursa Saham** yang ditulis menggunakan bahasa Go. Proyek ini mendemonstrasikan mekanisme perdagangan saham real-time berbasis *Price-Time Priority*, lengkap dengan antarmuka web interaktif yang cantik, cepat, dan responsif.
+BursaCore adalah simulator **Matching Engine Bursa Saham** yang ditulis menggunakan bahasa Go. Proyek ini mendemonstrasikan mekanisme perdagangan saham real-time berbasis *Price-Time Priority*, lengkap dengan antarmuka web interaktif yang cantik, cepat, dan responsif.
 
 ![BursaCore](https://img.shields.io/badge/Status-Active-brightgreen.svg) ![Go Version](https://img.shields.io/badge/Go-1.21%2B-blue.svg) ![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL-336791.svg)
 
