@@ -6,6 +6,16 @@ BursaCore adalah simulator **Matching Engine Bursa Saham** yang ditulis mengguna
 
 ---
 
+## Screenshots
+
+![Market](static/market.png)
+![Trade](static/trade.png)
+![Portfolio](static/portfolio.png)
+![Order](static/order.png)
+![Traders](static/traders.png)
+
+---
+
 ## Fitur Utama
 
 - **Matching Engine Super Cepat**: Implementasi *Price-Time Priority* klasik yang langsung mempertemukan order Beli dan Jual secara *atomic*.
