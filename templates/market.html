@@ -1,0 +1,70 @@
+{{template "base.html" .}}
+
+{{define "content"}}
+<div class="glass-panel">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px">
+    <h2>Market Watch</h2>
+    <span style="font-size:0.85rem; color:var(--text-muted)">Live via WebSocket</span>
+  </div>
+  
+  <div style="overflow-x:auto">
+    <table class="table-glass">
+      <thead>
+        <tr>
+          <th>Kode</th>
+          <th>Perusahaan</th>
+          <th>Sektor</th>
+          <th class="text-right">Harga</th>
+          <th class="text-right">+/-</th>
+          <th class="text-center">Aksi</th>
+        </tr>
+      </thead>
+      <tbody id="market-tbody">
+        {{range .Stocks}}
+        <tr>
+          <td><span class="ticker-badge">{{.Ticker}}</span></td>
+          <td style="font-size:0.85rem; color:var(--text-muted)">{{.CompanyName}}</td>
+          <td style="font-size:0.85rem">{{.Sector}}</td>
+          <td class="text-right num" style="font-weight:bold" id="price-{{.Ticker}}">{{fmtRupiah .LastPrice}}</td>
+          <td class="text-right num" id="change-{{.Ticker}}">
+            {{$change := sub .LastPrice .PrevClose}}
+            {{if gt $change 0}}<span class="price-up">+{{$change}}</span>
+            {{else if lt $change 0}}<span class="price-down">{{$change}}</span>
+            {{else}}<span style="color:var(--text-muted)">-</span>{{end}}
+          </td>
+          <td class="text-center">
+            <a href="/orderbook?ticker={{.Ticker}}" class="btn" style="padding:4px 8px; font-size:0.75rem; background:rgba(255,255,255,0.1); color:#fff">TRADE</a>
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  window.onWSMessage = function(msg) {
+    if (msg.event === 'stocks') {
+      msg.data.forEach(s => {
+        const el = document.getElementById('price-' + s.Ticker);
+        if (el) {
+          const oldText = el.innerText;
+          const newText = formatRupiah(s.LastPrice);
+          if (oldText !== newText) {
+            el.innerText = newText;
+            const change = s.LastPrice - s.PrevClose;
+            const cEl = document.getElementById('change-' + s.Ticker);
+            if (change > 0) {
+              el.className = "text-right num price-up flash-up";
+              cEl.innerHTML = `<span class="price-up">+${change}</span>`;
+            } else if (change < 0) {
+              el.className = "text-right num price-down flash-down";
+              cEl.innerHTML = `<span class="price-down">${change}</span>`;
+            }
+          }
+        }
+      });
+    }
+  };
+</script>
+{{end}}

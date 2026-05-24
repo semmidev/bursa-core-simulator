@@ -31,6 +31,32 @@ func (e *Engine) SubmitOrder(traderID, ticker string, side OrderSide, orderType 
 		return nil, nil, fmt.Errorf("trading for %s is currently HALTED", ticker)
 	}
 
+	if orderType == TypeLimit {
+		refPrice := stock.PrevClose
+		if refPrice <= 0 {
+			refPrice = stock.LastPrice
+		}
+
+		var maxPercent float64
+		if refPrice >= 50 && refPrice <= 200 {
+			maxPercent = 0.35
+		} else if refPrice > 200 && refPrice <= 5000 {
+			maxPercent = 0.25
+		} else {
+			maxPercent = 0.20
+		}
+
+		araPrice := refPrice + int64(float64(refPrice)*maxPercent)
+		arbPrice := refPrice - int64(float64(refPrice)*maxPercent)
+
+		if price > araPrice {
+			return nil, nil, fmt.Errorf("Order ditolak (Auto Reject): Harga %d melebihi batas ARA (%d)", price, araPrice)
+		}
+		if price < arbPrice {
+			return nil, nil, fmt.Errorf("Order ditolak (Auto Reject): Harga %d di bawah batas ARB (%d)", price, arbPrice)
+		}
+	}
+
 	tx, err := e.R.DB.Begin()
 	if err != nil {
 		return nil, nil, err
@@ -87,8 +113,11 @@ func (e *Engine) SubmitOrder(traderID, ticker string, side OrderSide, orderType 
 	// Refund unused reservation
 	if side == SideBuy {
 		if orderType == TypeLimit {
-			unfilled := order.QtyLot - result.TotalFill
-			refund := order.Price * unfilled * 100
+			var actualCost int64
+			for _, t := range result.Trades {
+				actualCost += t.Price * t.QtyLot * 100
+			}
+			refund := (order.Price * order.QtyLot * 100) - actualCost
 			if refund > 0 {
 				if err = e.R.UpdateTraderCash(tx, traderID, refund); err != nil {
 					return nil, nil, err

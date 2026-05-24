@@ -1,0 +1,67 @@
+{{template "base.html" .}}
+
+{{define "content"}}
+<div class="glass-panel">
+  <h2>Riwayat Order</h2>
+  
+  {{if .Error}}
+    <div style="background:rgba(244,67,54,0.1); border:1px solid var(--red); color:var(--red); padding:10px; margin-top:15px; border-radius:6px">
+      ⚠ {{.Error}}
+    </div>
+  {{end}}
+
+  {{if .Orders}}
+  <div style="overflow-x:auto; margin-top:20px">
+    <table class="table-glass">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Kode</th>
+          <th>Tipe</th>
+          <th>Side</th>
+          <th class="text-right">Harga</th>
+          <th class="text-right">Qty</th>
+          <th class="text-right">Filled</th>
+          <th>Status</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Orders}}
+        <tr>
+          <td style="font-size:0.75rem; color:var(--text-muted)">{{.ID}}</td>
+          <td><span class="ticker-badge">{{.Ticker}}</span></td>
+          <td style="font-size:0.85rem">{{.OrderType}}</td>
+          <td>
+            {{if eq .Side "BUY"}}<span style="color:var(--green); font-weight:bold">BUY</span>
+            {{else}}<span style="color:var(--red); font-weight:bold">SELL</span>{{end}}
+          </td>
+          <td class="text-right num">{{if eq .Price 0}}MARKET{{else}}{{fmtRupiah .Price}}{{end}}</td>
+          <td class="text-right num">{{.QtyLot}}</td>
+          <td class="text-right num">{{.FilledLot}}</td>
+          <td>
+            {{if eq .Status "OPEN"}}<span style="color:var(--accent-hover)">OPEN</span>
+            {{else if eq .Status "PARTIAL"}}<span style="color:#f5a623">PARTIAL</span>
+            {{else if eq .Status "FILLED"}}<span style="color:var(--green)">FILLED</span>
+            {{else}}<span style="color:var(--text-muted)">{{.Status}}</span>{{end}}
+          </td>
+          <td>
+            {{if or (eq .Status "OPEN") (eq .Status "PARTIAL")}}
+              <form method="POST" action="/order/cancel" style="margin:0">
+                <input type="hidden" name="order_id" value="{{.ID}}">
+                <button type="submit" class="btn btn-danger" style="padding:4px 8px; font-size:0.75rem">CANCEL</button>
+              </form>
+            {{end}}
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  <div class="text-center" style="padding:40px; color:var(--text-muted)">
+    Anda belum memiliki riwayat order.
+  </div>
+  {{end}}
+</div>
+{{end}}

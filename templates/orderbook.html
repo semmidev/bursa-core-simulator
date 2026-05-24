@@ -1,0 +1,161 @@
+{{template "base.html" .}}
+
+{{define "content"}}
+<div class="grid grid-3">
+  
+  <div class="glass-panel" style="grid-column: span 1">
+    <h3>Pilih Saham</h3>
+    <div style="margin-top:15px; display:flex; flex-direction:column; gap:8px">
+      {{range .Stocks}}
+        <a href="/orderbook?ticker={{.Ticker}}" style="padding:10px; border-radius:6px; background:rgba(255,255,255,0.05); display:flex; justify-content:space-between">
+          <span class="ticker-badge">{{.Ticker}}</span>
+          <span class="num">{{fmtRupiah .LastPrice}}</span>
+        </a>
+      {{end}}
+    </div>
+  </div>
+  
+  <div style="grid-column: span 2; display:flex; flex-direction:column; gap:20px">
+    {{if .CurrentStock}}
+      <div class="glass-panel" style="display:flex; justify-content:space-between; align-items:center">
+        <div>
+          <h1 style="font-size:2rem; margin-bottom:5px">{{.CurrentStock.Ticker}}</h1>
+          <span style="color:var(--text-muted)">{{.CurrentStock.CompanyName}}</span>
+        </div>
+        <div class="text-right">
+          <div class="num" style="font-size:1.8rem; font-weight:bold" id="ob-price">{{fmtRupiah .CurrentStock.LastPrice}}</div>
+        </div>
+      </div>
+      
+      {{if .Error}}
+        <div class="glass-panel" style="background:rgba(244,67,54,0.1); border-color:var(--red); color:var(--red); padding:10px">
+          ⚠ {{.Error}}
+        </div>
+      {{end}}
+
+      <div class="grid grid-2">
+        <div class="glass-panel">
+          <h4 style="color:var(--green); border-bottom:1px solid var(--border-color); padding-bottom:10px; margin-bottom:10px">BID (BELI)</h4>
+          <table class="table-glass" style="font-size:0.8rem">
+            <thead><tr><th>Harga</th><th class="text-right">Lot</th></tr></thead>
+            <tbody>
+              {{range .OrderBook.Bids}}
+                <tr><td class="num price-up">{{fmtRupiah .Price}}</td><td class="num text-right">{{.TotalLot}}</td></tr>
+              {{end}}
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="glass-panel">
+          <h4 style="color:var(--red); border-bottom:1px solid var(--border-color); padding-bottom:10px; margin-bottom:10px">ASK (JUAL)</h4>
+          <table class="table-glass" style="font-size:0.8rem">
+            <thead><tr><th>Harga</th><th class="text-right">Lot</th></tr></thead>
+            <tbody>
+              {{range .OrderBook.Asks}}
+                <tr><td class="num price-down">{{fmtRupiah .Price}}</td><td class="num text-right">{{.TotalLot}}</td></tr>
+              {{end}}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      {{if .User}}
+        <div class="glass-panel">
+          <h3>Submit Order</h3>
+          <form method="POST" action="/order/submit" style="margin-top:15px">
+            <input type="hidden" name="ticker" value="{{.CurrentStock.Ticker}}">
+            
+            <div class="grid grid-2" style="margin-bottom:15px">
+              <div class="form-group">
+                <label>Side</label>
+                <select name="side" class="input-glass">
+                  <option value="BUY">BUY</option>
+                  <option value="SELL">SELL</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Tipe Order</label>
+                <select name="order_type" class="input-glass" id="order_type" onchange="togglePrice()">
+                  <option value="LIMIT">LIMIT</option>
+                  <option value="MARKET">MARKET</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="grid grid-2" style="margin-bottom:15px">
+              <div class="form-group">
+                <label>Harga <span style="font-size:0.75rem; color:var(--text-muted)">(ARB: <span style="color:var(--red)">{{fmtRupiah .ArbPrice}}</span> - ARA: <span style="color:var(--green)">{{fmtRupiah .AraPrice}}</span>)</span></label>
+                <input type="number" name="price" id="input_price" class="input-glass" value="{{.CurrentStock.LastPrice}}" min="{{.ArbPrice}}" max="{{.AraPrice}}" oninput="calc()">
+              </div>
+              <div class="form-group">
+                <label>Qty (Lot)</label>
+                <input type="number" name="qty_lot" id="input_qty" class="input-glass" value="1" min="1" oninput="calc()">
+              </div>
+            </div>
+            
+            <div style="background:rgba(0,0,0,0.2); padding:15px; border-radius:8px; margin-bottom:15px; font-family:var(--font-mono); font-size:0.85rem">
+              <div style="display:flex; justify-content:space-between; margin-bottom:5px">
+                <span style="color:var(--text-muted)">Trading Balance</span>
+                <span style="color:var(--green)">{{fmtRupiah .User.CashBalance}}</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:5px">
+                <span style="color:var(--text-muted)">Investasi</span>
+                <span id="sum_invest">Rp 0</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:10px">
+                <span style="color:var(--text-muted)">Fee (0.15%)</span>
+                <span id="sum_fee">Rp 0</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; border-top:1px dashed var(--border-color); padding-top:10px; font-weight:bold">
+                <span>Total Estimasi</span>
+                <span id="sum_total">Rp 0</span>
+              </div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary" style="width:100%; padding:15px; font-size:1.1rem">KIRIM ORDER</button>
+          </form>
+        </div>
+        
+        <script>
+          const cash = {{.User.CashBalance}};
+          function togglePrice() {
+            const type = document.getElementById('order_type').value;
+            document.getElementById('input_price').disabled = (type === 'MARKET');
+            calc();
+          }
+          function calc() {
+            const price = parseInt(document.getElementById('input_price').value) || 0;
+            const qty = parseInt(document.getElementById('input_qty').value) || 0;
+            const invest = price * qty * 100;
+            const fee = Math.floor(invest * 0.0015);
+            const total = invest + fee;
+            
+            document.getElementById('sum_invest').innerText = formatRupiah(invest);
+            document.getElementById('sum_fee').innerText = formatRupiah(fee);
+            
+            const sumTotal = document.getElementById('sum_total');
+            sumTotal.innerText = formatRupiah(total);
+            
+            if (total > cash) {
+              sumTotal.style.color = "var(--red)";
+            } else {
+              sumTotal.style.color = "inherit";
+            }
+          }
+          calc();
+        </script>
+      {{else}}
+        <div class="glass-panel text-center">
+          <p style="color:var(--text-muted); margin-bottom:15px">Anda harus login untuk melakukan transaksi.</p>
+          <a href="/traders" class="btn btn-primary">Login Sekarang</a>
+        </div>
+      {{end}}
+      
+    {{else}}
+      <div class="glass-panel text-center" style="padding:60px 20px">
+        <h3 style="color:var(--text-muted)">Pilih saham di sebelah kiri untuk melihat order book dan melakukan transaksi.</h3>
+      </div>
+    {{end}}
+  </div>
+</div>
+{{end}}
