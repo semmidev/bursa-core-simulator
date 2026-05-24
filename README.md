@@ -1,107 +1,102 @@
-# BEI Exchange Simulator — Web Edition
+# BursaCore ⚡
 
-Terminal UI yang telah diubah menjadi **web application** dengan real-time data via WebSocket.
+BursaCore (sebelumnya BEI Exchange Simulator) adalah simulator **Matching Engine Bursa Saham** yang ditulis menggunakan bahasa Go. Proyek ini mendemonstrasikan mekanisme perdagangan saham real-time berbasis *Price-Time Priority*, lengkap dengan antarmuka web interaktif yang cantik, cepat, dan responsif.
 
-```
-  ██████╗ ███████╗██╗    ███████╗██╗  ██╗ ██████╗██╗  ██╗ █████╗ ███╗   ██╗ ██████╗ ███████╗
-  ██╔══██╗██╔════╝██║    ██╔════╝╚██╗██╔╝██╔════╝██║  ██║██╔══██╗████╗  ██║██╔════╝ ██╔════╝
-  ██████╔╝█████╗  ██║    █████╗   ╚███╔╝ ██║     ███████║███████║██╔██╗ ██║██║  ███╗█████╗
-  ██╔══██╗██╔══╝  ██║    ██╔══╝   ██╔██╗ ██║     ██╔══██║██╔══██║██║╚██╗██║██║   ██║██╔══╝
-  ██████╔╝███████╗██║    ███████╗██╔╝ ██╗╚██████╗██║  ██║██║  ██║██║ ╚████║╚██████╔╝███████╗
-  ╚═════╝ ╚══════╝╚═╝    ╚══════╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚══════╝
-```
+![BursaCore](https://img.shields.io/badge/Status-Active-brightgreen.svg) ![Go Version](https://img.shields.io/badge/Go-1.21%2B-blue.svg) ![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL-336791.svg)
+
+---
+
+## Fitur Utama
+
+- **Matching Engine Super Cepat**: Implementasi *Price-Time Priority* klasik yang langsung mempertemukan order Beli dan Jual secara *atomic*.
+- **Aturan ARA & ARB Otomatis**: Dilengkapi dengan hard-coded validation rules bursa lokal:
+  - Harga Rp 50 - Rp 200: Max naik/turun 35% sehari.
+  - Harga Rp 200 - Rp 5.000: Max naik/turun 25% sehari.
+  - Harga > Rp 5.000: Max naik/turun 20% sehari.
+- **Real-Time Data Streaming**: Menggunakan WebSockets untuk *auto-refresh* Order Book, Daftar Saham, Portfolio, dan Notifikasi secara *real-time* tanpa perlu reload manual.
+- **Robust Order Execution**:
+  - `LIMIT Order` dengan reservasi dana yang akurat.
+  - `MARKET Order` dengan mekanisme *Fill-and-Kill* yang langsung melakukan *refund* jika likuiditas tidak mencukupi (termasuk partial-fills otomatis).
+- **Desain UI Brutalist Premium**: Interface web yang clean, kontras tinggi (Light Mode), dan estetik. Dirancang sedemikian rupa untuk menonjolkan fungsi (Form follows Function) tanpa mengorbankan _visual elegance_. Menggunakan *Space Mono* dan *Inter* untuk kejelasan data finansial.
+- **Auto-Seeded Database**: Data awal (26 saham *Blue-Chip* dan 4 trader simulator) disuntikkan secara otomatis via skema DDL ke PostgreSQL.
+
+---
 
 ## Quick Start
 
-```bash
-# 1. Jalankan PostgreSQL
-docker compose up -d postgres
+1. **Jalankan PostgreSQL Database**
+   ```bash
+   docker compose up -d postgres
+   ```
 
-# 2. Install dependencies
-go mod download
+2. **Install Dependencies**
+   ```bash
+   go mod download
+   ```
 
-# 3. Jalankan web server
-go run .
+3. **Jalankan Web Server**
+   ```bash
+   go run .
+   ```
 
-# 4. Buka browser
-open http://localhost:8080
+4. **Buka Browser**
+   Buka `http://localhost:8080`. Data awal sudah otomatis di-seed. Gunakan username `budi`, `siti`, `agus`, atau `dewi` untuk mencoba *login* dan *trading*.
+
+---
+
+## Arsitektur Aplikasi
+
+```text
+bursa-core/
+├── main.go           # Entry point aplikasi
+├── server.go         # Konfigurasi HTTP server + WebSocket hub + Routing
+├── db.go             # Manajemen koneksi ke PostgreSQL
+├── engine.go         # Otak aplikasi: Matching Engine (Price-Time Priority)
+├── model.go          # Definisi struktur data (Domain types)
+├── repo.go           # Repository pattern untuk eksekusi SQL queries
+├── styles.go         # Helpers untuk number & currency formatting (Rupiah)
+├── schema.sql        # Database schema DDL & Automatic Seeding mechanism
+├── templates/        # Kumpulan file HTML (Go html/template) dengan Brutalist UI
+└── static/           # Asset static (style.css, dll)
 ```
 
-Setelah aplikasi berjalan, klik tombol **SEED** di header untuk mengisi data demo (26 saham BEI + 4 trader).
+---
 
-## Fitur Web
+## WebSocket Channels
 
-| Section | Deskripsi |
-|---------|-----------|
-| **Market Watch** | Tabel saham real-time dengan flash animasi saat harga berubah |
-| **Order Book** | Bid/Ask depth dengan bar visualisasi, spread info, recent trades |
-| **Portfolio** | P/L per saham dengan bar indicator, summary total aset |
-| **Orders** | Riwayat order dengan cancel button |
-| **Traders** | Daftar trader dengan login langsung |
+Server otomatis melakukan *broadcasting* event ke semua klien yang terhubung secara realtime:
 
-## Arsitektur Web
+| Event Name | Tipe Data | Deskripsi |
+|---|---|---|
+| `stocks` | `[]Stock` | Broadcast pembaruan seluruh tabel harga saham. |
+| `trades:{ticker}` | `[]Trade` | Daftar transaksi sukses terakhir untuk suatu ticker. |
+| `orderbook:{ticker}` | `*OrderBook` | Pembaruan susunan *Bid/Ask* kedalaman order book. |
+| `trader:{id}` | `*Trader` | Sinkronisasi mutasi kas/portofolio setelah order/match. |
 
-```
-main.go           ← Entry point
-server.go         ← HTTP server + WebSocket hub + REST API
-db.go             ← Koneksi PostgreSQL
-engine.go         ← Matching engine (price-time priority)
-model.go          ← Domain types
-repo.go           ← Repository layer (SQL queries)
-seed.go           ← Data demo BEI blue-chips
-styles.go         ← Number formatting helpers
-templates/
-  index.html      ← Single-page app (Go HTML template + Tailwind + vanilla JS)
-schema.sql        ← DDL PostgreSQL
-compose.yaml      ← Docker Compose
-Makefile          ← Command shortcuts
-```
+---
 
-## WebSocket Events
+## Routes & Endpoints
 
-Server broadcast events ke semua connected clients:
-
-| Event | Data | Trigger |
-|-------|------|---------|
-| `stocks` | `[]Stock` | Setiap 2 detik (auto-refresh) + setelah order match |
-| `trades:{ticker}` | `[]Trade` | Setelah order match untuk ticker tersebut |
-| `orderbook:{ticker}` | `*OrderBook` | Setelah order match untuk ticker tersebut |
-| `trader:{id}` | `*Trader` | Setelah order submit / cancel (update cash) |
-
-## REST API
+Aplikasi ini menggunakan mode render *Server-Side Rendering* (SSR) murni dengan bantuan WebSocket untuk dinamisasi elemen.
 
 | Method | Path | Deskripsi |
-|--------|------|-----------|
-| GET | `/api/stocks` | Semua saham |
-| GET | `/api/orderbook?ticker=BBCA` | Order book untuk ticker |
-| GET | `/api/trades?ticker=BBCA` | 20 trade terakhir |
-| GET | `/api/portfolio?trader_id=UUID` | Portfolio trader |
-| GET | `/api/orders?trader_id=UUID` | 50 order terakhir trader |
-| GET | `/api/traders` | Semua trader |
-| POST | `/api/order/submit` | Submit order baru |
-| POST | `/api/order/cancel` | Batalkan order |
-| POST | `/api/seed` | Seed data demo |
+|---|---|---|
+| `GET` | `/` | Redirects to `/market` |
+| `GET` | `/market` | Live Market Watch |
+| `GET` | `/orderbook` | Trade interface & Order Book depth |
+| `GET` | `/portfolio` | Dashboard portofolio pribadi & P/L |
+| `GET` | `/orders` | Riwayat order terbuka, sukses, dan dibatalkan |
+| `GET` | `/traders` | Daftar simulasi trader (Login interface) |
+| `POST` | `/order/submit`| Entry-point untuk Matching Engine memproses order baru |
+| `POST` | `/order/cancel`| Tarik antrean order dari Engine |
+| `POST` | `/login` / `/logout` | Manajemen Session Cookies |
 
-## Environment Variables
-
-| Variable | Default | Keterangan |
-|----------|---------|------------|
-| `DB_HOST` | `localhost` | Host PostgreSQL |
-| `DB_PORT` | `5432` | Port PostgreSQL |
-| `DB_USER` | `postgres` | Username |
-| `DB_PASS` | `postgres` | Password |
-| `DB_NAME` | `exchange` | Nama database |
-| `HTTP_ADDR` | `:8080` | Alamat HTTP server |
+---
 
 ## Design System
 
-- **Font Display**: Bebas Neue (headers, ticker, labels)
-- **Font Mono**: Space Mono (data, numbers, code)
-- **Warna Accent**: `#E63329` (merah brutal)
-- **Background**: `#F5F0E8` (krem/paper)
-- **Border**: 3-4px solid hitam dengan box-shadow offset (brutalist)
-
-## Requirements
-
-- Go 1.21+
-- Docker & Docker Compose (untuk PostgreSQL)
+BursaCore dibangun dengan pedoman desain **Light Brutalism**:
+- Latar krem redup (paper-like) `var(--bg-color)` untuk mereduksi ketegangan mata dengan *radial-gradient* dot pattern.
+- Sudut elemen ditekuk tajam menggunakan batas _solid_ `3px` hitam (tanpa blur shadow konvensional).
+- Warna aksen cerah: **Hijau Neon** (`#00e676`) dan **Merah Tajam** (`#ff3d00`) untuk indikator *up/down* yang mudah dilihat.
+- Font tipografi menggunakan `Inter` untuk bacaan umum dan `Space Mono` untuk seluruh presisi data finansial.
