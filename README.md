@@ -1,14 +1,14 @@
-# BEI Exchange Simulator
+# BEI Exchange Simulator — Web Edition
 
-Terminal UI simulator untuk Bursa Efek Indonesia (BEI), dibangun dengan [Bubble Tea](https://github.com/charmbracelet/bubbletea) dan PostgreSQL.
+Terminal UI yang telah diubah menjadi **web application** dengan real-time data via WebSocket.
 
 ```
-██████╗ ███████╗██╗    ███████╗██╗  ██╗ ██████╗██╗  ██╗ █████╗ ███╗   ██╗ ██████╗ ███████╗
-██╔══██╗██╔════╝██║    ██╔════╝╚██╗██╔╝██╔════╝██║  ██║██╔══██╗████╗  ██║██╔════╝ ██╔════╝
-██████╔╝█████╗  ██║    █████╗   ╚███╔╝ ██║     ███████║███████║██╔██╗ ██║██║  ███╗█████╗
-██╔══██╗██╔══╝  ██║    ██╔══╝   ██╔██╗ ██║     ██╔══██║██╔══██║██║╚██╗██║██║   ██║██╔══╝
-██████╔╝███████╗██║    ███████╗██╔╝ ██╗╚██████╗██║  ██║██║  ██║██║ ╚████║╚██████╔╝███████╗
-╚═════╝ ╚══════╝╚═╝    ╚══════╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚══════╝
+  ██████╗ ███████╗██╗    ███████╗██╗  ██╗ ██████╗██╗  ██╗ █████╗ ███╗   ██╗ ██████╗ ███████╗
+  ██╔══██╗██╔════╝██║    ██╔════╝╚██╗██╔╝██╔════╝██║  ██║██╔══██╗████╗  ██║██╔════╝ ██╔════╝
+  ██████╔╝█████╗  ██║    █████╗   ╚███╔╝ ██║     ███████║███████║██╔██╗ ██║██║  ███╗█████╗
+  ██╔══██╗██╔══╝  ██║    ██╔══╝   ██╔██╗ ██║     ██╔══██║██╔══██║██║╚██╗██║██║   ██║██╔══╝
+  ██████╔╝███████╗██║    ███████╗██╔╝ ██╗╚██████╗██║  ██║██║  ██║██║ ╚████║╚██████╔╝███████╗
+  ╚═════╝ ╚══════╝╚═╝    ╚══════╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚══════╝
 ```
 
 ## Quick Start
@@ -20,57 +20,67 @@ docker compose up -d postgres
 # 2. Install dependencies
 go mod download
 
-# 3. Jalankan aplikasi
+# 3. Jalankan web server
 go run .
 
-# atau pakai Makefile
-make run
+# 4. Buka browser
+open http://localhost:8080
 ```
 
-Setelah aplikasi berjalan, tekan **S** untuk mengisi data demo (26 saham BEI + 4 trader).
+Setelah aplikasi berjalan, klik tombol **SEED** di header untuk mengisi data demo (26 saham BEI + 4 trader).
 
-## Fitur
+## Fitur Web
 
-| Tab | Shortcut | Deskripsi |
-|-----|----------|-----------|
-| Market | `1` | Real-time market watch — auto-refresh 3 detik |
-| Order Book | `2` | Bid/ask depth dengan visualisasi bar |
-| Trade | `3` | Form order multi-langkah (Limit/Market) |
-| Portfolio | `4` | Portofolio + P/L per saham |
-| Orders | `5` | Riwayat order + cancel |
-| Traders | `6` | Daftar semua trader |
+| Section | Deskripsi |
+|---------|-----------|
+| **Market Watch** | Tabel saham real-time dengan flash animasi saat harga berubah |
+| **Order Book** | Bid/Ask depth dengan bar visualisasi, spread info, recent trades |
+| **Portfolio** | P/L per saham dengan bar indicator, summary total aset |
+| **Orders** | Riwayat order dengan cancel button |
+| **Traders** | Daftar trader dengan login langsung |
 
-## Keyboard Shortcuts
-
-```
-1-6        Pindah tab
-↑↓ / k/j   Navigasi
-⏎           Pilih / konfirmasi
-L           Login (pilih trader)
-o           Logout
-b           Buy saham terpilih
-s           Sell saham terpilih
-S           Seed data demo
-r           Refresh data
-c           Cancel order (di tab Orders)
-q           Keluar
-```
-
-## Arsitektur
+## Arsitektur Web
 
 ```
-app.go            ← Bubble Tea UI (styles, app model, views)
-db.go             ← koneksi PostgreSQL
-engine.go         ← matching engine (price-time priority)
-main.go           ← entry point
-model.go          ← domain types (Stock, Order, Trade, ...)
-repo.go           ← repository layer (semua query SQL)
-seed.go           ← data demo BEI blue-chips
-styles.go         ← Bubble Tea UI styles
-schema.sql        ← DDL idempotent
-compose.yaml      ← Docker Compose configuration
+main.go           ← Entry point
+server.go         ← HTTP server + WebSocket hub + REST API
+db.go             ← Koneksi PostgreSQL
+engine.go         ← Matching engine (price-time priority)
+model.go          ← Domain types
+repo.go           ← Repository layer (SQL queries)
+seed.go           ← Data demo BEI blue-chips
+styles.go         ← Number formatting helpers
+templates/
+  index.html      ← Single-page app (Go HTML template + Tailwind + vanilla JS)
+schema.sql        ← DDL PostgreSQL
+compose.yaml      ← Docker Compose
 Makefile          ← Command shortcuts
 ```
+
+## WebSocket Events
+
+Server broadcast events ke semua connected clients:
+
+| Event | Data | Trigger |
+|-------|------|---------|
+| `stocks` | `[]Stock` | Setiap 2 detik (auto-refresh) + setelah order match |
+| `trades:{ticker}` | `[]Trade` | Setelah order match untuk ticker tersebut |
+| `orderbook:{ticker}` | `*OrderBook` | Setelah order match untuk ticker tersebut |
+| `trader:{id}` | `*Trader` | Setelah order submit / cancel (update cash) |
+
+## REST API
+
+| Method | Path | Deskripsi |
+|--------|------|-----------|
+| GET | `/api/stocks` | Semua saham |
+| GET | `/api/orderbook?ticker=BBCA` | Order book untuk ticker |
+| GET | `/api/trades?ticker=BBCA` | 20 trade terakhir |
+| GET | `/api/portfolio?trader_id=UUID` | Portfolio trader |
+| GET | `/api/orders?trader_id=UUID` | 50 order terakhir trader |
+| GET | `/api/traders` | Semua trader |
+| POST | `/api/order/submit` | Submit order baru |
+| POST | `/api/order/cancel` | Batalkan order |
+| POST | `/api/seed` | Seed data demo |
 
 ## Environment Variables
 
@@ -81,18 +91,15 @@ Makefile          ← Command shortcuts
 | `DB_USER` | `postgres` | Username |
 | `DB_PASS` | `postgres` | Password |
 | `DB_NAME` | `exchange` | Nama database |
+| `HTTP_ADDR` | `:8080` | Alamat HTTP server |
 
-## Konsep Matching Engine
+## Design System
 
-- **Order Book** — State in-memory di PostgreSQL; Bids diurutkan harga turun, Asks harga naik
-- **Price-Time Priority** — Order dengan harga terbaik dieksekusi lebih dulu; jika sama, yang lebih lama masuk didahulukan
-- **Limit Order** — Masuk antrean, tunggu counterpart cocok
-- **Market Order** — Eksekusi instan di harga terbaik yang tersedia, bisa partial fill
-- **Atomik** — Setiap match dalam satu database transaction (ACID)
-
-## Saham yang Tersedia (Seed)
-
-BBCA, BBRI, BMRI, BBNI, BRIS, TLKM, EXCL, ISAT, ASII, ADRO, PTBA, PGAS, MEDC, UNVR, ICBP, INDF, HMSP, MYOR, BSDE, SMRA, JSMR, GOTO, BUKA, DMMX, SMGR, INTP
+- **Font Display**: Bebas Neue (headers, ticker, labels)
+- **Font Mono**: Space Mono (data, numbers, code)
+- **Warna Accent**: `#E63329` (merah brutal)
+- **Background**: `#F5F0E8` (krem/paper)
+- **Border**: 3-4px solid hitam dengan box-shadow offset (brutalist)
 
 ## Requirements
 
