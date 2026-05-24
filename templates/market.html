@@ -1,12 +1,17 @@
 {{template "base.html" .}}
 
 {{define "content"}}
-<div class="glass-panel">
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px">
-    <h2>Market Watch</h2>
-    <span style="font-size:0.85rem; color:var(--text-muted)">Live via WebSocket</span>
+<div class="card">
+  <div
+    style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:3px solid var(--border-color); padding-bottom:10px">
+    <h2 style="margin:0; border:none; padding:0">Live Market</h2>
+    <div style="font-family:var(--font-mono); font-size:0.9rem">
+      <span
+        style="display:inline-block; width:10px; height:10px; background:var(--accent-green); border:2px solid #111; border-radius:50%; margin-right:5px"></span>
+      Market Open
+    </div>
   </div>
-  
+
   <div style="overflow-x:auto">
     <table class="table-glass">
       <thead>
@@ -33,7 +38,8 @@
             {{else}}<span style="color:var(--text-muted)">-</span>{{end}}
           </td>
           <td class="text-center">
-            <a href="/orderbook?ticker={{.Ticker}}" class="btn" style="padding:4px 8px; font-size:0.75rem; background:rgba(255,255,255,0.1); color:#fff">TRADE</a>
+            <a href="/orderbook?ticker={{.Ticker}}" class="btn"
+              style="padding:4px 8px; font-size:0.75rem; background:rgba(255,255,255,0.1); color:#2ab14e">TRADE</a>
           </td>
         </tr>
         {{end}}
@@ -43,7 +49,7 @@
 </div>
 
 <script>
-  window.onWSMessage = function(msg) {
+  window.onWSMessage = function (msg) {
     if (msg.event === 'stocks') {
       msg.data.forEach(s => {
         const el = document.getElementById('price-' + s.Ticker);

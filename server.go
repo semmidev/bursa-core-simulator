@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"sync"
 	"time"
@@ -187,6 +188,7 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, dat
 	}
 	
 	if err := tmpl.ExecuteTemplate(w, "base.html", data); err != nil {
+		fmt.Println("Template Execution Error:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -345,7 +347,7 @@ func (s *Server) handleSubmitOrder(w http.ResponseWriter, r *http.Request) {
 	)
 	
 	if err != nil {
-		http.Redirect(w, r, "/orderbook?ticker="+ticker+"&err="+err.Error(), http.StatusSeeOther)
+		http.Redirect(w, r, "/orderbook?ticker="+ticker+"&err="+url.QueryEscape(err.Error()), http.StatusSeeOther)
 		return
 	}
 
@@ -380,7 +382,7 @@ func (s *Server) handleCancelOrder(w http.ResponseWriter, r *http.Request) {
 	
 	cancelled, err := s.repo.CancelOrder(orderID, user.ID)
 	if err != nil {
-		http.Redirect(w, r, "/orders?err="+err.Error(), http.StatusSeeOther)
+		http.Redirect(w, r, "/orders?err="+url.QueryEscape(err.Error()), http.StatusSeeOther)
 		return
 	}
 	

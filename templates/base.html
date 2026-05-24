@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BEI Exchange Simulator</title>
+  <title>BursaCore Exchange</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -11,9 +11,9 @@
 </head>
 <body>
 
-  <nav class="glass-nav">
+  <nav class="nav">
     <div style="display:flex; align-items:center; gap:20px">
-      <div style="font-weight:700; font-size:1.2rem; letter-spacing:0.05em">BEI<span style="color:var(--accent-color)">⚡</span>EXCHANGE</div>
+      <div style="font-weight:800; font-size:1.4rem; letter-spacing:-0.05em; background:var(--accent-yellow); padding:4px 8px; border:3px solid #111; box-shadow:4px 4px 0px #111;">BURSA<span style="color:var(--accent-red)">⚡</span>CORE</div>
       <div class="nav-links">
         <a href="/market" class="nav-link {{if eq .Path "/market"}}active{{end}}">Market</a>
         <a href="/orderbook" class="nav-link {{if eq .Path "/orderbook"}}active{{end}}">Trade</a>
@@ -25,15 +25,15 @@
     
     <div style="display:flex; align-items:center; gap:15px">
       {{if .User}}
-        <div style="font-size:0.9rem; color:var(--text-muted)">
-          <span style="color:var(--text-main); font-weight:600">{{.User.Username}}</span> | 
-          Kas: <span style="color:var(--green); font-family:var(--font-mono)">{{fmtRupiah .User.CashBalance}}</span>
+        <div style="font-size:0.95rem; font-weight:800; color:var(--text-muted)">
+          <span style="color:var(--text-main); font-weight:800">{{.User.Username}}</span> | 
+          Kas: <span style="color:var(--accent-green); font-family:var(--font-mono); font-weight:800; border-bottom:3px solid var(--accent-green)">{{fmtRupiah .User.CashBalance}}</span>
         </div>
         <form method="POST" action="/logout" style="margin:0">
-          <button type="submit" class="btn" style="background:rgba(255,255,255,0.1); color:#fff; padding:6px 12px; font-size:0.8rem">LOGOUT</button>
+          <button type="submit" class="btn btn-warning" style="padding:6px 12px; font-size:0.85rem">LOGOUT</button>
         </form>
       {{else}}
-        <a href="/traders" class="btn" style="background:rgba(255,255,255,0.1); color:#fff; padding:6px 12px; font-size:0.8rem">LOGIN</a>
+        <a href="/traders" class="btn btn-warning" style="padding:6px 12px; font-size:0.85rem">LOGIN</a>
       {{end}}
     </div>
   </nav>

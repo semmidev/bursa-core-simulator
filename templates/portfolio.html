@@ -1,11 +1,11 @@
 {{template "base.html" .}}
 
 {{define "content"}}
-<div class="glass-panel" style="max-width:800px; margin:0 auto">
+<div class="card" style="max-width:800px; margin:0 auto">
   <h2>Portofolio</h2>
   <div style="margin-top:10px; margin-bottom:30px; font-family:var(--font-mono)">
     <span style="color:var(--text-muted)">Trading Balance:</span> 
-    <span style="font-size:1.5rem; font-weight:bold; color:var(--green)">{{fmtRupiah .User.CashBalance}}</span>
+    <span style="font-size:1.5rem; font-weight:bold; color:var(--accent-green)">{{fmtRupiah .User.CashBalance}}</span>
   </div>
 
   {{if .Items}}
@@ -25,7 +25,7 @@
         <td class="text-right num">{{.QtyLot}}</td>
         <td class="text-right num">{{fmtRupiah .AvgPrice}}</td>
         <td class="text-center">
-          <a href="/orderbook?ticker={{.Ticker}}" class="btn" style="padding:4px 8px; font-size:0.75rem; background:var(--red); color:#fff">JUAL</a>
+          <a href="/orderbook?ticker={{.Ticker}}" class="btn btn-danger" style="padding:4px 8px; font-size:0.75rem;">JUAL</a>
         </td>
       </tr>
       {{end}}

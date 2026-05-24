@@ -1,7 +1,7 @@
 {{template "base.html" .}}
 
 {{define "content"}}
-<div class="auth-card glass-panel">
+<div class="auth-card card">
   <h2 style="margin-bottom:20px">Login Trader</h2>
   <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:30px">
     Simulator ini menggunakan sistem login sederhana berdasarkan username yang sudah di-seed.
@@ -20,7 +20,7 @@
   </form>
 </div>
 
-<div class="glass-panel" style="margin-top:40px">
+<div class="card" style="margin-top:40px">
   <h3 style="margin-bottom:15px">Daftar Trader</h3>
   <table class="table-glass">
     <thead>
@@ -35,7 +35,7 @@
       <tr>
         <td style="font-weight:bold">{{.Username}}</td>
         <td style="color:var(--text-muted)">{{.FullName}}</td>
-        <td class="text-right num" style="color:var(--green)">{{fmtRupiah .CashBalance}}</td>
+        <td class="text-right num" style="color:var(--accent-green)">{{fmtRupiah .CashBalance}}</td>
       </tr>
       {{end}}
     </tbody>

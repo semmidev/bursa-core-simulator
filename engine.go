@@ -110,40 +110,61 @@ func (e *Engine) SubmitOrder(traderID, ticker string, side OrderSide, orderType 
 		return nil, nil, fmt.Errorf("matching: %w", err)
 	}
 
-	// Refund unused reservation
+	// Post-match processing
+	unfilled := order.QtyLot - result.TotalFill
+
+	// 1. Handle Unfilled Market Orders (Fill and Kill)
+	if orderType == TypeMarket && unfilled > 0 {
+		_, err = tx.Exec("UPDATE orders SET status = CASE WHEN filled_lot > 0 THEN 'PARTIAL'::order_status ELSE 'CANCELLED'::order_status END, updated_at=NOW() WHERE id=$1", order.ID)
+		if err != nil {
+			return nil, nil, err
+		}
+		// In our DB schema, PARTIAL means still active. Wait, if we want it permanently cancelled, we should just use CANCELLED, or add a 'PARTIAL_CANCELLED' state. Since we can't easily add enums without altering DB, let's use 'CANCELLED' for any killed order to avoid matching.
+		_, err = tx.Exec("UPDATE orders SET status = 'CANCELLED', updated_at=NOW() WHERE id=$1", order.ID)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	// 2. Refund unused reservations
 	if side == SideBuy {
 		if orderType == TypeLimit {
-			var actualCost int64
+			// Limit Buy: Unfilled portion stays in orderbook, so DO NOT refund for unfilled lots.
+			// Only refund the difference between our limit price and the actual execution price.
+			var refund int64
 			for _, t := range result.Trades {
-				actualCost += t.Price * t.QtyLot * 100
+				if order.Price > t.Price {
+					refund += (order.Price - t.Price) * t.QtyLot * 100
+				}
 			}
-			refund := (order.Price * order.QtyLot * 100) - actualCost
 			if refund > 0 {
 				if err = e.R.UpdateTraderCash(tx, traderID, refund); err != nil {
 					return nil, nil, err
 				}
 			}
 		} else {
+			// Market Buy: Unfilled portion is cancelled. Refund everything we reserved MINUS what we actually spent.
 			var actualCost int64
 			for _, t := range result.Trades {
 				actualCost += t.Price * t.QtyLot * 100
 			}
 			rp := stock.LastPrice + stock.LastPrice/10
-			if rp == 0 {
-				rp = 99_999_999
+			if rp <= 0 {
+				rp = stock.PrevClose
+				if rp <= 0 {
+					rp = 99_999_999
+				}
 			}
-			refund := rp*qtyLot*100 - actualCost
+			refund := (rp * qtyLot * 100) - actualCost
 			if refund > 0 {
 				if err = e.R.UpdateTraderCash(tx, traderID, refund); err != nil {
 					return nil, nil, err
 				}
 			}
 		}
-	}
-
-	if side == SideSell && orderType == TypeMarket {
-		unfilled := order.QtyLot - result.TotalFill
-		if unfilled > 0 {
+	} else if side == SideSell {
+		if orderType == TypeMarket && unfilled > 0 {
+			// Market Sell: Unfilled portion is cancelled. Refund the shares.
 			if err = e.R.UpsertPortfolioAdd(tx, traderID, ticker, unfilled, 0); err != nil {
 				return nil, nil, err
 			}
