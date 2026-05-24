@@ -87,9 +87,7 @@ const (
 	StepSelectTicker TradeStep = iota
 	StepSelectSide
 	StepSelectType
-	StepEnterQty
-	StepEnterPrice
-	StepConfirm
+	StepInputOrder
 	StepResult
 )
 
@@ -277,14 +275,17 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	if m.tradeForm != nil {
 		switch m.tradeForm.Step {
-		case StepEnterQty:
+		case StepInputOrder:
+			var cmds []tea.Cmd
 			var cmd tea.Cmd
-			m.tradeForm.QtyInput, cmd = m.tradeForm.QtyInput.Update(msg)
-			return m, cmd
-		case StepEnterPrice:
-			var cmd tea.Cmd
-			m.tradeForm.PriceInput, cmd = m.tradeForm.PriceInput.Update(msg)
-			return m, cmd
+			if m.tradeForm.Cursor == 0 {
+				m.tradeForm.PriceInput, cmd = m.tradeForm.PriceInput.Update(msg)
+				cmds = append(cmds, cmd)
+			} else if m.tradeForm.Cursor == 1 {
+				m.tradeForm.QtyInput, cmd = m.tradeForm.QtyInput.Update(msg)
+				cmds = append(cmds, cmd)
+			}
+			return m, tea.Batch(cmds...)
 		}
 	}
 
@@ -296,7 +297,7 @@ func (m AppModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.loginForm != nil && m.loginForm.Step == LoginInput {
 		isTyping = true
 	}
-	if m.tradeForm != nil && (m.tradeForm.Step == StepEnterQty || m.tradeForm.Step == StepEnterPrice) {
+	if m.tradeForm != nil && m.tradeForm.Step == StepInputOrder {
 		isTyping = true
 	}
 
@@ -578,55 +579,137 @@ func (m AppModel) handleTradeKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			} else {
 				tf.OrderType = TypeMarket
 			}
-			tf.Step = StepEnterQty
-			tf.QtyInput.Focus()
-		}
-
-	case StepEnterQty:
-		if key.Matches(msg, keys.Enter) {
-			var qty int64
-			fmt.Sscanf(strings.ReplaceAll(tf.QtyInput.Value(), ".", ""), "%d", &qty)
-			if qty <= 0 {
-				m.statusMsg = "Jumlah lot harus > 0"
-				m.statusIsErr = true
-				return m, nil
-			}
-			tf.Qty = qty
-			if tf.OrderType == TypeMarket {
-				tf.Step = StepConfirm
-			} else {
-				tf.Step = StepEnterPrice
+			tf.Step = StepInputOrder
+			if tf.OrderType == TypeLimit {
+				tf.Cursor = 0
 				tf.PriceInput.Focus()
+				tf.QtyInput.Blur()
+				if tf.PriceInput.Value() == "" {
+					for _, s := range m.stocks {
+						if s.Ticker == tf.Ticker {
+							tf.PriceInput.SetValue(fmt.Sprintf("%d", s.LastPrice))
+							break
+						}
+					}
+				}
+			} else {
+				tf.Cursor = 1
+				tf.QtyInput.Focus()
+				tf.PriceInput.Blur()
 			}
-		} else {
-			var cmd tea.Cmd
-			tf.QtyInput, cmd = tf.QtyInput.Update(msg)
-			return m, cmd
+			if tf.QtyInput.Value() == "" {
+				tf.QtyInput.SetValue("1")
+			}
 		}
 
-	case StepEnterPrice:
-		if key.Matches(msg, keys.Enter) {
-			var price int64
-			fmt.Sscanf(strings.ReplaceAll(tf.PriceInput.Value(), ".", ""), "%d", &price)
-			if price <= 0 {
-				m.statusMsg = "Harga harus > 0"
-				m.statusIsErr = true
-				return m, nil
+	case StepInputOrder:
+		if key.Matches(msg, keys.Up) || msg.String() == "+" {
+			if tf.Cursor == 0 {
+				var p int64
+				fmt.Sscanf(strings.ReplaceAll(tf.PriceInput.Value(), ".", ""), "%d", &p)
+				tf.PriceInput.SetValue(fmt.Sprintf("%d", p+5))
+			} else if tf.Cursor == 1 {
+				var q int64
+				fmt.Sscanf(strings.ReplaceAll(tf.QtyInput.Value(), ".", ""), "%d", &q)
+				tf.QtyInput.SetValue(fmt.Sprintf("%d", q+1))
+			} else if tf.Cursor == 2 {
+				tf.Cursor = 1
+				tf.QtyInput.Focus()
+				tf.PriceInput.Blur()
 			}
-			tf.Price = price
-			tf.Step = StepConfirm
+			return m, nil
+		} else if key.Matches(msg, keys.Down) || msg.String() == "-" {
+			if tf.Cursor == 0 {
+				var p int64
+				fmt.Sscanf(strings.ReplaceAll(tf.PriceInput.Value(), ".", ""), "%d", &p)
+				if p > 5 {
+					p -= 5
+				}
+				tf.PriceInput.SetValue(fmt.Sprintf("%d", p))
+			} else if tf.Cursor == 1 {
+				var q int64
+				fmt.Sscanf(strings.ReplaceAll(tf.QtyInput.Value(), ".", ""), "%d", &q)
+				if q > 1 {
+					q -= 1
+				}
+				tf.QtyInput.SetValue(fmt.Sprintf("%d", q))
+			}
+			return m, nil
+		} else if msg.String() == "tab" || key.Matches(msg, keys.Enter) {
+			if tf.Cursor == 0 {
+				var price int64
+				fmt.Sscanf(strings.ReplaceAll(tf.PriceInput.Value(), ".", ""), "%d", &price)
+				if price <= 0 {
+					m.statusMsg = "Harga harus > 0"
+					m.statusIsErr = true
+					return m, nil
+				}
+				tf.Price = price
+				tf.Cursor = 1
+				tf.PriceInput.Blur()
+				tf.QtyInput.Focus()
+			} else if tf.Cursor == 1 {
+				var qty int64
+				fmt.Sscanf(strings.ReplaceAll(tf.QtyInput.Value(), ".", ""), "%d", &qty)
+				if qty <= 0 {
+					m.statusMsg = "Jumlah lot harus > 0"
+					m.statusIsErr = true
+					return m, nil
+				}
+				tf.Qty = qty
+				tf.Cursor = 2
+				tf.QtyInput.Blur()
+				tf.PriceInput.Blur()
+			} else if tf.Cursor == 2 {
+				var price, qty int64
+				if tf.OrderType == TypeLimit {
+					price = tf.Price
+				} else {
+					for _, s := range m.stocks {
+						if s.Ticker == tf.Ticker {
+							price = s.LastPrice
+							break
+						}
+					}
+				}
+				qty = tf.Qty
+				investment := price * qty * 100
+				fee := investment * 15 / 10000
+				totalInvestment := investment + fee
+				if tf.Side == SideBuy && m.trader != nil && totalInvestment > m.trader.CashBalance {
+					m.statusMsg = "Saldo tidak mencukupi untuk order ini"
+					m.statusIsErr = true
+					return m, nil
+				}
+				return m, m.submitOrder()
+			}
+			return m, nil
+		} else if key.Matches(msg, keys.Esc) {
+			if tf.Cursor == 2 {
+				tf.Cursor = 1
+				tf.QtyInput.Focus()
+			} else if tf.Cursor == 1 {
+				if tf.OrderType == TypeLimit {
+					tf.Cursor = 0
+					tf.QtyInput.Blur()
+					tf.PriceInput.Focus()
+				} else {
+					tf.Step = StepSelectType
+					tf.Cursor = 0
+				}
+			} else if tf.Cursor == 0 {
+				tf.Step = StepSelectType
+				tf.Cursor = 0
+			}
+			return m, nil
 		} else {
 			var cmd tea.Cmd
-			tf.PriceInput, cmd = tf.PriceInput.Update(msg)
+			if tf.Cursor == 0 {
+				tf.PriceInput, cmd = tf.PriceInput.Update(msg)
+			} else if tf.Cursor == 1 {
+				tf.QtyInput, cmd = tf.QtyInput.Update(msg)
+			}
 			return m, cmd
-		}
-
-	case StepConfirm:
-		switch {
-		case key.Matches(msg, keys.Enter):
-			return m, m.submitOrder()
-		case key.Matches(msg, keys.Esc):
-			tf.Step = StepEnterQty
 		}
 
 	case StepResult:
@@ -1194,7 +1277,7 @@ func (m AppModel) renderTradeForm(height int) string {
 	lines = append(lines, "  "+StyleMuted.Render(strings.Repeat("─", 60)))
 
 	// Progress indicator
-	steps := []string{"Saham", "Sisi", "Tipe", "Qty", "Harga", "Konfirmasi"}
+	steps := []string{"Saham", "Sisi", "Tipe", "Input Order", "Selesai"}
 	stepIdx := int(tf.Step)
 	if stepIdx >= len(steps) {
 		stepIdx = len(steps) - 1
@@ -1294,45 +1377,70 @@ func (m AppModel) renderTradeForm(height int) string {
 			}
 		}
 
-	case StepEnterQty:
+	case StepInputOrder:
+		balance := int64(0)
+		if m.trader != nil {
+			balance = m.trader.CashBalance
+		}
+		lines = append(lines, "  "+StyleMuted.Render("Trading Balance")+"  "+StyleSuccess.Bold(true).Render(FmtRupiah(balance)))
+		lines = append(lines, "  "+StyleMuted.Render(strings.Repeat("─", 40)))
+		lines = append(lines, "")
+
+		var price, qty int64
+		if tf.OrderType == TypeLimit {
+			fmt.Sscanf(strings.ReplaceAll(tf.PriceInput.Value(), ".", ""), "%d", &price)
+		} else {
+			if stock != nil {
+				price = stock.LastPrice
+			}
+		}
+		fmt.Sscanf(strings.ReplaceAll(tf.QtyInput.Value(), ".", ""), "%d", &qty)
+
+		investment := price * qty * 100
+		fee := investment * 15 / 10000
+		totalInvestment := investment + fee
+
+		invStyle := StyleAccent
+		if tf.Side == SideBuy && totalInvestment > balance {
+			invStyle = StyleError
+		}
+
+		lines = append(lines, "  "+StyleMuted.Render("Investment (Inc. Fee)")+"  "+invStyle.Bold(true).Render(FmtRupiah(totalInvestment)))
+		if tf.Side == SideBuy && totalInvestment > balance {
+			lines = append(lines, "  "+StyleError.Render("⚠ Saldo tidak mencukupi!"))
+		}
+		lines = append(lines, "")
+
 		lines = append(lines, fmt.Sprintf("  %s  %s  %s", tickerInfo, sideLabel, StyleCyan.Render(string(tf.OrderType))))
 		lines = append(lines, "")
-		lines = append(lines, "  "+StyleBold.Render("Jumlah Lot (1 lot = 100 lembar):"))
-		lines = append(lines, "  "+lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).BorderForeground(ColorAccent).
-			Width(30).Render(tf.QtyInput.View()))
 
-	case StepEnterPrice:
-		lines = append(lines, fmt.Sprintf("  %s  %s  %s  %s Lot", tickerInfo, sideLabel, StyleCyan.Render(string(tf.OrderType)), StyleBold.Render(FmtNumber(tf.Qty))))
-		lines = append(lines, "")
-		if stock != nil {
-			lines = append(lines, "  "+StyleBold.Render(fmt.Sprintf("Harga per lembar (Rp) [Last: %s]:", FmtRupiah(stock.LastPrice))))
-		} else {
-			lines = append(lines, "  "+StyleBold.Render("Harga per lembar (Rp):"))
-		}
-		lines = append(lines, "  "+lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).BorderForeground(ColorAccent).
-			Width(30).Render(tf.PriceInput.View()))
-
-	case StepConfirm:
-		lines = append(lines, "  "+StyleWarning.Bold(true).Render("[ KONFIRMASI ORDER ]"))
-		lines = append(lines, "")
-		lines = append(lines, fmt.Sprintf("  %-15s: %s", "Saham", StyleAccent.Bold(true).Render(tf.Ticker)))
-		sideStyle := StyleSuccess
-		if tf.Side == SideSell {
-			sideStyle = StyleError
-		}
-		lines = append(lines, fmt.Sprintf("  %-15s: %s", "Sisi", sideStyle.Bold(true).Render(string(tf.Side))))
-		lines = append(lines, fmt.Sprintf("  %-15s: %s", "Tipe", StyleCyan.Render(string(tf.OrderType))))
-		lines = append(lines, fmt.Sprintf("  %-15s: %s Lot (%s lembar)", "Jumlah", StyleBold.Render(FmtNumber(tf.Qty)), StyleMuted.Render(FmtNumber(tf.Qty*100))))
 		if tf.OrderType == TypeLimit {
-			lines = append(lines, fmt.Sprintf("  %-15s: %s", "Harga", StyleBold.Render(FmtRupiah(tf.Price))))
-			lines = append(lines, fmt.Sprintf("  %-15s: %s", "Est. Nilai", StyleWarning.Render(FmtRupiah(tf.Price*tf.Qty*100))))
+			priceLabel := StyleBold.Render("Harga per lembar :")
+			if tf.Cursor == 0 {
+				lines = append(lines, "  "+priceLabel+" "+tf.PriceInput.View())
+			} else {
+				lines = append(lines, "  "+priceLabel+"  "+tf.PriceInput.Value())
+			}
 		} else {
-			lines = append(lines, fmt.Sprintf("  %-15s: %s", "Harga", StyleWarning.Render("MARKET")))
+			lines = append(lines, "  "+StyleBold.Render("Harga per lembar :")+" "+StyleWarning.Render("MARKET"))
+		}
+
+		lotLabel := StyleBold.Render("Jumlah Lot       :")
+		if tf.Cursor == 1 {
+			lines = append(lines, "  "+lotLabel+" "+tf.QtyInput.View())
+		} else {
+			lines = append(lines, "  "+lotLabel+"  "+tf.QtyInput.Value())
+		}
+		lines = append(lines, "  "+StyleMuted.Render("(1 lot = 100 lembar)"))
+		lines = append(lines, "")
+
+		if tf.Cursor == 2 {
+			lines = append(lines, "  "+StyleAccent.Bold(true).Render("▶ [ KONFIRMASI & KIRIM ORDER ]"))
+		} else {
+			lines = append(lines, "  "+StyleMuted.Render("  [ KONFIRMASI & KIRIM ORDER ]"))
 		}
 		lines = append(lines, "")
-		lines = append(lines, "  "+StyleAccent.Bold(true).Render("⏎ Kirim Order    Esc Batalkan"))
+		lines = append(lines, "  "+StyleMuted.Render("↑/↓: +/- nilai   Tab/⏎: Lanjut   Esc: Kembali"))
 
 	case StepResult:
 		if m.lastOrder == nil {
